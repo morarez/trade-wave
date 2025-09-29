@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Logs
+*.log
+data/trading_bot.log
+
+# CSV or other data files (optional, if you don’t want to track signals)
+data/*.csv
+
+# IDE / editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Byte-compiled / cache
+*.egg
+*.egg-info/
+dist/
+build/

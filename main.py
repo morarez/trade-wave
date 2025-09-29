@@ -16,9 +16,10 @@ logging.basicConfig(
     ]
 )
 
-symbols = ["BTCUSDT", "ETHUSDT"]
-interval = "5m"
-limit = 50
+# Configuration
+symbols = ["BTCUSDT", "ETHUSDT"]  # add more symbols here
+interval = "5m"                   # 5-minute candles
+limit = 50                         # number of candles to fetch
 
 def fetch_and_signal():
     for symbol in symbols:
@@ -39,14 +40,22 @@ def fetch_and_signal():
         except Exception as e:
             logging.error(f"Error fetching data for {symbol}: {e}")
 
-# Run once immediately
-fetch_and_signal()
 
-# Schedule every 5 minutes
-schedule.every(5).minutes.do(fetch_and_signal)
 
-logging.info("Starting 5-minute trading signal bot...")
+def main():
+    logging.info("Starting 5-minute trading signal bot...")
 
-while True:
-    schedule.run_pending()
-    time.sleep(1)
+    # Run once immediately
+    fetch_and_signal()
+
+    # Schedule every 5 minutes
+    schedule.every(5).minutes.do(fetch_and_signal)
+
+    # Keep the script running
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
+
+if __name__ == "__main__":
+    main()
