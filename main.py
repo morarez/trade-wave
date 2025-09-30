@@ -2,9 +2,12 @@ import logging
 import time
 import pandas as pd
 import schedule
-from utils import fetch_binance_data, save_signal
+from utils import save_signal,print_preview
+from data_sources.binance import fetch_binance_data
+from data_sources.yahoo_finance import fetch_yfinance_data
 from strategies.ma_crossover import generate_signal as ma_signal
 from strategies.rsi_strategy import generate_signal as rsi_signal
+from ai.signals import generate_forecast
 
 # Setup logging
 logging.basicConfig(
@@ -17,14 +20,14 @@ logging.basicConfig(
 )
 
 # Configuration
-symbols = ["BTCUSDT", "ETHUSDT"]  # add more symbols here
-interval = "5m"                   # 5-minute candles
-limit = 50                         # number of candles to fetch
+symbols = ["AAPL", "MSFT"]  # add more symbols here
+interval = "5m"             # 5-minute candles
+limit = "5d"                # number of candles to fetch
 
 def fetch_and_signal():
     for symbol in symbols:
         try:
-            df = fetch_binance_data(symbol, interval, limit)
+            df = fetch_yfinance_data(symbol, interval, limit)
             
             if df.empty:
                 logging.warning(f"No data fetched for {symbol}")
@@ -58,4 +61,14 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # Yahoo Finance example
+    yahoo_df = fetch_yfinance_data("AAPL", interval="1h", period="5d")
+    forecast = generate_forecast(yahoo_df, periods=24, freq="H")
+    print("=== Yahoo Finance Prophet Forecast (AAPL) ===")
+    print_preview(forecast)
+
+    # Binance example
+    binance_df = fetch_binance_data("BTCUSDT", interval="1h", limit=500)
+    forecast = generate_forecast(binance_df, periods=24, freq="H")
+    print("\n=== Binance Prophet Forecast (BTCUSDT) ===")
+    print_preview(forecast)
