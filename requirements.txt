@@ -1,8 +1,7 @@
-pandas
+pandas_ta
 numpy
 requests
 ta
 matplotlib
 schedule
-yfinance
-prophet
+alpaca
