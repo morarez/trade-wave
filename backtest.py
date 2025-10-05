@@ -1,58 +1,82 @@
 # backtest.py
 import vectorbt as vbt
+from data_handler import get_yfinance_data
+from strategies.strategy_factory import STRATEGY_MAP
 import pandas as pd
-from datetime import datetime
-from data_handler import get_alpaca_data
-from config import TICKERS
-from indicators import compute_indicators_vbt, build_signals_vbt
+import numpy as np
 
-FEES = 0.001
-SLIPPAGE = 0.0005
+def run_all_backtests(symbols=None, start_date="2020-01-01", end_date=None, cash=10000, interval="1d"):
+    """
+    Run backtests for all strategies on given symbols.
+    
+    Parameters:
+        symbols: list of tickers
+        start_date: str, start of historical data
+        end_date: str, end of historical data (defaults to today)
+        cash: initial cash per portfolio
+        interval: yfinance interval ('1d', '1m', '5m', etc.)
+    
+    Returns:
+        pf: last portfolio object
+        summary: DataFrame of stats per strategy
+        per_symbol: dict of {strategy_name: {'pf': Portfolio, 'stats': stats}}
+        price_df: DataFrame of price data
+        entries: DataFrame of entry signals
+        exits: DataFrame of exit signals
+    """
 
-def run_backtest(price_df: pd.DataFrame, entries: pd.DataFrame, exits: pd.DataFrame, cash: float = 10000.0):
-    """Run a vectorbt backtest portfolio."""
-    pf = vbt.Portfolio.from_signals(
-        close=price_df,
-        entries=entries,
-        exits=exits,
-        init_cash=cash,
-        fees=FEES,
-        slippage=SLIPPAGE,
-        freq='1D',
-        size=1.0,
-        allow_short=False
-    )
-    return pf
+    if symbols is None:
+        symbols = ["AAPL", "MSFT", "GOOG"]
 
+    # Fetch price data from yfinance
+    price_df = get_yfinance_data(symbols=symbols, start=start_date, end=end_date, interval=interval)
+    price_df = price_df.astype(float).copy()  # ensure float & writeable
 
-def summarize_portfolio(pf: vbt.Portfolio):
-    """Return portfolio stats."""
-    stats = pf.stats()
-    per_symbol = pd.DataFrame({
-        "total_return": pf.total_return(),
-        "cagr": pf.cagr(),
-        "max_drawdown": pf.max_drawdown(),
-        "sharpe": pf.sharpe_ratio()
-    })
-    return stats, per_symbol
+    summary = {}
+    per_symbol = {}
 
+    for name, strat in STRATEGY_MAP.items():
+        print(f"Running backtest for strategy: {name}")
 
-def full_backtest_run(start_date: str = None, cash: float = 10000.0):
-    """Run a full backtest using Alpaca data."""
-    print("Loading price data from Alpaca...")
-    price_df = get_alpaca_data()
-    if start_date:
-        price_df = price_df[price_df.index >= pd.to_datetime(start_date)]
-    price_df = price_df.loc[:, price_df.columns.isin(TICKERS)]
+        # Prepare empty boolean DataFrames
+        entries = pd.DataFrame(False, index=price_df.index, columns=price_df.columns, dtype=bool)
+        exits = pd.DataFrame(False, index=price_df.index, columns=price_df.columns, dtype=bool)
 
-    print("Computing indicators (vectorbt)...")
-    fast_ma, slow_ma, rsi_df = compute_indicators_vbt(price_df)
+        # Generate signals for each symbol
+        for symbol in price_df.columns:
+            df = price_df[[symbol]].rename(columns={symbol: "close"})
+            signal = strat.generate_signal(df)  # should return Series of "BUY"/"SELL"/"HOLD" or single value
 
-    print("Building entry/exit signals...")
-    entries, exits = build_signals_vbt(price_df, fast_ma, slow_ma, rsi_df)
+            # If single value, broadcast to all dates
+            if isinstance(signal, str) or isinstance(signal, bool):
+                signal_value = signal == "BUY"
+                entries[symbol] = pd.Series(signal_value, index=price_df.index, dtype=bool)
+                exits[symbol] = pd.Series(~signal_value, index=price_df.index, dtype=bool)
+            else:
+                # Series: convert to bool
+                entries[symbol] = (signal == "BUY").astype(bool)
+                exits[symbol] = (signal == "SELL").astype(bool)
 
-    print("Running vectorbt backtest...")
-    pf = run_backtest(price_df, entries, exits, cash=cash)
+        # Convert to NumPy arrays and make writeable to avoid read-only errors
+        # Make sure entries/exits are boolean and no NaNs
+        entries = entries.fillna(False).astype(bool)
+        exits = exits.fillna(False).astype(bool)
+        price_df = price_df.copy()
 
-    stats, per_symbol = summarize_portfolio(pf)
-    return pf, stats, per_symbol, price_df, entries, exits
+        pf = vbt.Portfolio.from_signals(
+            price_df,
+            entries,
+            exits,
+            init_cash=cash,
+            freq="1D"
+        )
+
+        stats = pf.stats()
+        summary[name] = stats[["Total Return [%]", "Sharpe Ratio", "Max Drawdown [%]"]]
+        per_symbol[name] = {"pf": pf, "stats": stats}
+
+    result_summary = pd.DataFrame(summary).T
+    print("\n=== Strategy Comparison ===")
+    print(result_summary)
+
+    return pf, result_summary, per_symbol, price_df, entries, exits

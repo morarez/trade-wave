@@ -1,24 +1,39 @@
-from alpaca.data.historical import StockHistoricalDataClient
-from alpaca.data.requests import StockBarsRequest
-from alpaca.data.timeframe import TimeFrame
+# data_handler.py
+import yfinance as yf
 import pandas as pd
-from datetime import datetime
-from config import APCA_API_KEY_ID, APCA_API_SECRET_KEY, TICKERS, TIMEFRAME, START_DATE
+from typing import List
+from datetime import datetime, timedelta
 
-def get_alpaca_data():
-    """Fetch historical bars from Alpaca."""
-    client = StockHistoricalDataClient(APCA_API_KEY_ID, APCA_API_SECRET_KEY)
+def get_yfinance_data(
+    symbols: List[str],
+    start: str = "2020-01-01",
+    end: str = None,
+    interval: str = "1d"
+) -> pd.DataFrame:
+    """
+    Fetch historical data from yfinance.
 
-    timeframe = TimeFrame.Day if TIMEFRAME == "1Day" else TimeFrame.Minute
-    request = StockBarsRequest(
-        symbol_or_symbols=TICKERS,
-        timeframe=TimeFrame.Day,
-        start=pd.Timestamp(START_DATE, tz="America/New_York"),
-        end=pd.Timestamp(datetime.now(), tz="America/New_York")
-    )
+    symbols : list of stock tickers
+    start : start date (YYYY-MM-DD)
+    end : end date (YYYY-MM-DD), defaults to today
+    interval : '1d', '1m', '5m', '15m', '1h', etc.
 
-    bars = client.get_stock_bars(request)
-    df = bars.df  # multi-index DataFrame: (symbol, timestamp)
-    df = df.reset_index().pivot(index="timestamp", columns="symbol", values="close")
-    df = df.dropna(how="all")
-    return df
+    Returns a multi-column DataFrame: columns = tickers, rows = datetime index
+    """
+
+    if end is None:
+        end = datetime.now().strftime("%Y-%m-%d")
+
+    all_data = {}
+    for symbol in symbols:
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(start=start, end=end, interval=interval)
+        if df.empty:
+            print(f"Warning: No data for {symbol}")
+            continue
+        all_data[symbol] = df['Close']  # keep only close prices
+
+    # Combine into a single DataFrame
+    price_df = pd.concat(all_data, axis=1)
+    price_df.columns.name = None
+    return price_df
