@@ -71,8 +71,8 @@ def run_all_backtests(symbols=None, start_date="2020-01-01", end_date=None, cash
             freq="1D"
         )
 
-        stats = pf.stats()
-        summary[name] = stats[["Total Return [%]", "Sharpe Ratio", "Max Drawdown [%]"]]
+        stats = pf.stats(metrics=["total_return", "sharpe_ratio"])
+        summary[name] = stats[['Total Return [%]', 'Sharpe Ratio']]
         per_symbol[name] = {"pf": pf, "stats": stats}
 
     result_summary = pd.DataFrame(summary).T
