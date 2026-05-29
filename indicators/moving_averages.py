@@ -13,5 +13,7 @@ def add_ema(df: pd.DataFrame, short_window: int = 12, long_window: int = 26):
 
 def add_macd(df: pd.DataFrame):
     macd = ta.macd(df["close"])
+    if macd is None:
+        return df
     df = pd.concat([df, macd], axis=1)
     return df

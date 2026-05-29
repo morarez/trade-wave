@@ -9,26 +9,43 @@ def apply_indicators(df):
     df = add_rsi(df)
     return df
 
-def generate_signal(df):
-    """
-    Generate BUY / SELL / HOLD signal using Bollinger Bands + RSI.
-    Ensures indicator columns exist even if helper functions use different names.
-    """
-    df = apply_indicators(df)
-    latest = df.iloc[-1]
 
-    # --- Normalize possible column names ---
-    # Try to detect Bollinger Bands column naming dynamically
+def _resolve_bb_columns(df):
     bbl_col = next((c for c in df.columns if c.lower().startswith("bbl")), None)
     bbu_col = next((c for c in df.columns if c.lower().startswith("bbu")), None)
     rsi_col = next((c for c in df.columns if c.lower() == "rsi"), None)
-
     if bbl_col is None or bbu_col is None or rsi_col is None:
         raise KeyError(
             f"Missing required indicator columns. Found columns: {df.columns.tolist()}"
         )
+    return bbl_col, bbu_col, rsi_col
 
-    # --- Generate signal based on latest values ---
+
+def generate_signals(df):
+    df = apply_indicators(df)
+    bbl_col, bbu_col, rsi_col = _resolve_bb_columns(df)
+
+    signals = pd.Series("HOLD", index=df.index)
+    close = pd.to_numeric(df["close"], errors="coerce")
+    bbl = pd.to_numeric(df[bbl_col], errors="coerce")
+    bbu = pd.to_numeric(df[bbu_col], errors="coerce")
+    rsi = pd.to_numeric(df[rsi_col], errors="coerce")
+
+    buy = (close < bbl) & (rsi < 35)
+    sell = (close > bbu) & (rsi > 65)
+    buy = buy.fillna(False)
+    sell = sell.fillna(False)
+
+    signals.loc[buy] = "BUY"
+    signals.loc[sell] = "SELL"
+    return signals
+
+
+def generate_signal(df):
+    df = apply_indicators(df)
+    latest = df.iloc[-1]
+    bbl_col, bbu_col, rsi_col = _resolve_bb_columns(df)
+
     if latest["close"] < latest[bbl_col] and latest[rsi_col] < 35:
         return "BUY"
     elif latest["close"] > latest[bbu_col] and latest[rsi_col] > 65:

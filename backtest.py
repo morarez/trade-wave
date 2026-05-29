@@ -35,30 +35,38 @@ def run_all_backtests(symbols=None, start_date="2020-01-01", end_date=None, cash
     summary = {}
     per_symbol = {}
 
+    def build_entry_exit_signals(signal, index):
+        if isinstance(signal, pd.Series):
+            signal = signal.reindex(index).astype("string").fillna("HOLD")
+            buy = signal == "BUY"
+            sell = signal == "SELL"
+            entries = buy & ~buy.shift(1).fillna(False)
+            exits = sell & ~sell.shift(1).fillna(False)
+            return entries.astype(bool), exits.astype(bool)
+
+        entries = pd.Series(False, index=index, dtype=bool)
+        exits = pd.Series(False, index=index, dtype=bool)
+        if signal == "BUY" and len(index) > 0:
+            entries.iloc[0] = True
+        return entries, exits
+
     for name, strat in STRATEGY_MAP.items():
         print(f"Running backtest for strategy: {name}")
 
-        # Prepare empty boolean DataFrames
         entries = pd.DataFrame(False, index=price_df.index, columns=price_df.columns, dtype=bool)
         exits = pd.DataFrame(False, index=price_df.index, columns=price_df.columns, dtype=bool)
 
-        # Generate signals for each symbol
         for symbol in price_df.columns:
             df = price_df[[symbol]].rename(columns={symbol: "close"})
-            signal = strat.generate_signal(df)  # should return Series of "BUY"/"SELL"/"HOLD" or single value
-
-            # If single value, broadcast to all dates
-            if isinstance(signal, str) or isinstance(signal, bool):
-                signal_value = signal == "BUY"
-                entries[symbol] = pd.Series(signal_value, index=price_df.index, dtype=bool)
-                exits[symbol] = pd.Series(~signal_value, index=price_df.index, dtype=bool)
+            if hasattr(strat, "generate_signals"):
+                signal = strat.generate_signals(df)
             else:
-                # Series: convert to bool
-                entries[symbol] = (signal == "BUY").astype(bool)
-                exits[symbol] = (signal == "SELL").astype(bool)
+                signal = strat.generate_signal(df)
 
-        # Convert to NumPy arrays and make writeable to avoid read-only errors
-        # Make sure entries/exits are boolean and no NaNs
+            symbol_entries, symbol_exits = build_entry_exit_signals(signal, price_df.index)
+            entries[symbol] = symbol_entries
+            exits[symbol] = symbol_exits
+
         entries = entries.fillna(False).astype(bool)
         exits = exits.fillna(False).astype(bool)
         price_df = price_df.copy()
@@ -71,8 +79,8 @@ def run_all_backtests(symbols=None, start_date="2020-01-01", end_date=None, cash
             freq="1D"
         )
 
-        stats = pf.stats(metrics=["total_return", "sharpe_ratio"])
-        summary[name] = stats[['Total Return [%]', 'Sharpe Ratio']]
+        stats = pf.stats(metrics=["total_return", "sharpe_ratio"], agg_func=None)
+        summary[name] = stats[['Total Return [%]', 'Sharpe Ratio']].mean()
         per_symbol[name] = {"pf": pf, "stats": stats}
 
     result_summary = pd.DataFrame(summary).T

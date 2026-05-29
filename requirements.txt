@@ -1,3 +1,5 @@
+vectorbt
+ipywidgets
 pandas_ta
 numpy
 requests
