@@ -58,16 +58,3 @@ python ai/train_model.py
 ```bash
 python main.py
 ```
-
-Files added:
-
-- `ai/data.py`: feature engineering helpers
-- `ai/model.py`: training and model persistence
-- `ai/predict.py`: load model and generate BUY/SELL/HOLD signals
-- `ai/train_model.py`: example training script
-- `strategies/ai_strategy.py`: wrapper so the AI model can be backtested alongside other strategies
-
-Notes:
-
-- The default AI model predicts next-period returns (regression) and converts predictions to signals via a threshold.
-- Start with the default LightGBM parameters and iterate on features and training splits; use walk-forward validation for robust results.

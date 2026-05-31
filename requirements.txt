@@ -9,3 +9,4 @@ schedule
 lightgbm
 scikit-learn
 joblib
+pytest
