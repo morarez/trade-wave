@@ -40,3 +40,34 @@ To customize the run, update the call to `run_all_backtests()` in `main.py` or a
 
 * overall strategy comparison statistics
 * per-symbol summary statistics for each strategy
+
+## AI Integration (LightGBM)
+
+This project includes an optional AI-based strategy using LightGBM. The AI modules live in the `ai/` package and include utilities to build features, train a model, and produce model-based signals.
+
+Quick start:
+
+1. Train a model (this will save to `ai/models/lightgbm_model.pkl`):
+
+```bash
+python ai/train_model.py
+```
+
+2. Run the backtest including the AI strategy (registered in `strategies/strategy_factory.py`):
+
+```bash
+python main.py
+```
+
+Files added:
+
+- `ai/data.py`: feature engineering helpers
+- `ai/model.py`: training and model persistence
+- `ai/predict.py`: load model and generate BUY/SELL/HOLD signals
+- `ai/train_model.py`: example training script
+- `strategies/ai_strategy.py`: wrapper so the AI model can be backtested alongside other strategies
+
+Notes:
+
+- The default AI model predicts next-period returns (regression) and converts predictions to signals via a threshold.
+- Start with the default LightGBM parameters and iterate on features and training splits; use walk-forward validation for robust results.

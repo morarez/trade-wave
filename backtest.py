@@ -5,7 +5,7 @@ from strategies.strategy_factory import STRATEGY_MAP
 import pandas as pd
 import numpy as np
 
-def run_all_backtests(symbols=None, start_date="2020-01-01", end_date=None, cash=10000, interval="1d"):
+def run_all_backtests(symbols=None, start_date="2024-01-01", end_date=None, cash=10000, interval="1d"):
     """
     Run backtests for all strategies on given symbols.
     
@@ -26,7 +26,7 @@ def run_all_backtests(symbols=None, start_date="2020-01-01", end_date=None, cash
     """
 
     if symbols is None:
-        symbols = ["AAPL", "MSFT", "GOOG"]
+        symbols = ["AAPL", "SOFI", "GOOG"]
 
     # Fetch price data from yfinance
     price_df = get_yfinance_data(symbols=symbols, start=start_date, end=end_date, interval=interval)
@@ -36,6 +36,21 @@ def run_all_backtests(symbols=None, start_date="2020-01-01", end_date=None, cash
     per_symbol = {}
 
     def build_entry_exit_signals(signal, index):
+        """Convert BUY/SELL/HOLD signals into vectorbt entry/exit boolean Series.
+        
+        Detects signal transitions: BUY becomes an entry (first occurrence after non-BUY),
+        SELL becomes an exit (first occurrence after non-SELL). This prevents consecutive 
+        duplicate signals and produces clean entry/exit points for portfolio construction.
+        
+        Args:
+            signal: either a pd.Series of signals ('BUY', 'SELL', 'HOLD') indexed by datetime,
+                    or a single string signal ('BUY', 'SELL', 'HOLD').
+            index: the target datetime index to align signals to (typically price_df.index).
+        
+        Returns:
+            Tuple of (entries, exits) where each is a pd.Series of bool indexed by the 
+            provided index. True indicates a transition into that signal state.
+        """
         if isinstance(signal, pd.Series):
             signal = signal.reindex(index).astype("string").fillna("HOLD")
             buy = signal == "BUY"

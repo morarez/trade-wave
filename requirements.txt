@@ -6,4 +6,6 @@ requests
 ta
 matplotlib
 schedule
-alpaca
+lightgbm
+scikit-learn
+joblib

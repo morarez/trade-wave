@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 def get_yfinance_data(
     symbols: List[str],
-    start: str = "2020-01-01",
+    start: str = "2024-01-01",
     end: str = None,
     interval: str = "1d"
 ) -> pd.DataFrame:
