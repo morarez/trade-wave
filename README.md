@@ -1,20 +1,42 @@
 # trade-wave
-market waves and trends.
 
-## **Usage**
+Trade-Wave is a lightweight Python framework for backtesting systematic trading strategies using historical market data.
 
-Run the bot:
+## Installation
+
+1. Create and activate a virtual environment:
+
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+2. Install dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+3. Run the backtest:
 
 ```bash
 python main.py
 ```
 
-* Logs are saved in `data/trading_bot.log`.
-* Signals are saved in `data/signals.csv`.
+## Usage
 
----
+The default backtest runs for the symbol list configured in `backtest.py` and the strategies registered in `strategies/strategy_factory.py`.
 
-## **Customization**
+To customize the run, update the call to `run_all_backtests()` in `main.py` or adjust the defaults in `backtest.py`:
 
-* Edit `symbols` in `main.py` to track different assets.
-* Change `interval` for different candlestick periods (`5m`, `15m`, `1h`, etc.).
+* `symbols` - list of ticker symbols to backtest
+* `start_date` / `end_date` - historical data range
+* `cash` - starting portfolio cash amount
+* `interval` - data interval such as `1d`, `5m`, or `1h`
+
+## Output
+
+`main.py` prints:
+
+* overall strategy comparison statistics
+* per-symbol summary statistics for each strategy

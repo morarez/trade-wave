@@ -19,7 +19,7 @@ def run_all_backtests(symbols=None, start_date="2020-01-01", end_date=None, cash
     Returns:
         pf: last portfolio object
         summary: DataFrame of stats per strategy
-        per_symbol: dict of {strategy_name: {'pf': Portfolio, 'stats': stats}}
+        per_symbol: dict of {strategy_name: {'summary': pd.Series, 'stats': pd.DataFrame}}
         price_df: DataFrame of price data
         entries: DataFrame of entry signals
         exits: DataFrame of exit signals
@@ -80,11 +80,10 @@ def run_all_backtests(symbols=None, start_date="2020-01-01", end_date=None, cash
         )
 
         stats = pf.stats(metrics=["total_return", "sharpe_ratio"], agg_func=None)
-        summary[name] = stats[['Total Return [%]', 'Sharpe Ratio']].mean()
-        per_symbol[name] = {"pf": pf, "stats": stats}
+        pf_summary = stats[['Total Return [%]', 'Sharpe Ratio']].mean()
+        summary[name] = pf_summary
+        per_symbol[name] = {"summary": pf_summary, "stats": stats}
 
     result_summary = pd.DataFrame(summary).T
-    print("\n=== Strategy Comparison ===")
-    print(result_summary)
 
     return pf, result_summary, per_symbol, price_df, entries, exits

@@ -34,3 +34,5 @@ build/
 
 # Ignore environment variable files
 .env
+
+MINE.md
