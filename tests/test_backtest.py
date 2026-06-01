@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 import pytest
 
 from backtest import run_all_backtests
