@@ -1,51 +1,100 @@
-# trade-wave
+# Trade Wave
 
-Trade-Wave is a lightweight Python framework for backtesting systematic trading strategies using historical market data.
+Trade Wave is a local backtesting project for systematic trading strategies. It combines a Python backend API with a TypeScript React frontend for an interactive local UI.
+
+## What it does
+
+- Runs historical backtests for registered trading strategies.
+- Supports multiple symbols and strategy performance comparison.
+
+## Prerequisites
+
+- Python 3.12+ (a virtual environment is recommended)
+- Node.js and npm
 
 ## Installation
 
-1. Create and activate a virtual environment:
+1. Create and activate a Python virtual environment:
 
 ```bash
 python -m venv venv
 source venv/bin/activate
 ```
 
-2. Install dependencies:
+2. Install Python dependencies:
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-3. Run the backtest:
+3. Install frontend dependencies:
 
 ```bash
+cd frontend
+npm install
+```
+
+## Running locally
+
+The project is run with a Python backend API and a Vite frontend.
+
+In one terminal, start the backend API:
+
+```bash
+source venv/bin/activate
 python main.py
 ```
 
-## Usage
+In another terminal, start the frontend:
 
-The default backtest runs for the symbol list configured in `backtest.py` and the strategies registered in `strategies/strategy_factory.py`.
+```bash
+cd frontend
+npm run dev
+```
 
-To customize the run, update the call to `run_all_backtests()` in `main.py` or adjust the defaults in `backtest.py`:
+Open the Vite URL shown in the frontend terminal.
 
-* `symbols` - list of ticker symbols to backtest
-* `start_date` / `end_date` - historical data range
-* `cash` - starting portfolio cash amount
-* `interval` - data interval such as `1d`, `5m`, or `1h`
+## Project structure
 
-## Output
+- `main.py` - Python backend API server
+- `backtest.py` - backtest runner and strategy bridge
+- `data_handler.py` - yfinance data fetcher
+- `strategies/` - strategy implementations and registry
+- `ai/` - AI model prediction and training helpers
+- `frontend/` - React + TypeScript UI
+- `tests/` - pytest tests for strategy and backtest behavior
 
-`main.py` prints:
+## Frontend details
 
-* per-symbol summary statistics for each strategy
+The frontend is a Vite app in `frontend/`:
 
-## AI Integration (LightGBM)
+- `frontend/src/App.tsx` - main UI component
+- `frontend/src/styles.css` - application styles
+- `frontend/src/main.tsx` - React entrypoint
 
-This project includes an AI-based strategy using LightGBM. The AI modules live in the `ai/` package and include utilities to build features, train a model, and produce model-based signals.
 
-Train a model (this will save to `ai/models/lightgbm_model.pkl`):
+## Backend API
+
+The backend exposes a JSON POST API at:
+
+- `/api/backtest`
+
+Payload example:
+
+```json
+{ "symbols": "AAPL, MSFT, GOOG" }
+```
+
+Response structure includes `summary` and `per_symbol` data tables.
+
+## AI Integration
+
+This project includes an AI strategy using LightGBM in the `ai/` package.
+
+Train a model with:
 
 ```bash
 python ai/train_model.py
 ```
+
+The model file is expected at `ai/models/lightgbm_model.pkl`.

@@ -1,32 +1,9 @@
-import argparse
-from time import sleep
+from flask import Flask, jsonify, request
+import pandas as pd
+
 from backtest import run_all_backtests
 
-
-def format_series(series):
-    """Format a pandas Series with 2-decimal comma-separated numbers.
-    
-    Args:
-        series: pandas Series to format.
-    
-    Returns:
-        String representation of the series with comma-separated values.
-    """
-    return series.to_string(float_format=lambda x: f"{x:,.2f}")
-
-
-def print_per_symbol_summary(per_symbol):
-    """Print formatted per-symbol and per-strategy performance summaries.
-    
-    Args:
-        per_symbol: dict of {strategy_name: {'summary': pd.Series, 'stats': pd.DataFrame}}.
-    """
-    for strategy_name, data in per_symbol.items():
-        print(f"\n--- Strategy: {strategy_name} ---")
-        print("Portfolio summary:")
-        print(format_series(data["summary"]))
-        print("\nPer-symbol stats:")
-        print(data["stats"].to_string(float_format=lambda x: f"{x:,.2f}"))
+app = Flask(__name__)
 
 
 def parse_symbol_list(symbol_string):
@@ -37,17 +14,42 @@ def parse_symbol_list(symbol_string):
     return symbols or None
 
 
+def serialize_dataframe(df: pd.DataFrame):
+    df = df.copy()
+    columns = [str(col) for col in df.columns]
+    index = [str(idx) for idx in df.index]
+    data = []
+    for row in df.itertuples(index=False, name=None):
+        data.append([None if pd.isna(value) else value for value in row])
+    return {"columns": columns, "index": index, "data": data}
+
+
+def serialize_results(results):
+    return {
+        "summary": serialize_dataframe(results["summary"]),
+        "per_symbol": {
+            name: {
+                "summary": serialize_dataframe(data["summary"].to_frame().T),
+                "stats": serialize_dataframe(data["stats"]),
+            }
+            for name, data in results["per_symbol"].items()
+        },
+    }
+
+
+@app.route("/api/backtest", methods=["POST"])
+def api_backtest():
+    payload = request.get_json(silent=True) or {}
+    symbols = payload.get("symbols")
+    symbol_list = parse_symbol_list(symbols)
+
+    try:
+        _, summary, per_symbol, _, _, _ = run_all_backtests(symbols=symbol_list)
+        payload = {"summary": summary, "per_symbol": per_symbol}
+        return jsonify(serialize_results(payload))
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run strategy backtests for a list of symbols.")
-    parser.add_argument(
-        "--symbols",
-        type=str,
-        help="Comma or space separated list of symbols to backtest. Example: AAPL,MSFT,GOOG",
-    )
-    args = parser.parse_args()
-
-    symbols = parse_symbol_list(args.symbols)
-    pf, stats, per_symbol, price_df, entries, exits = run_all_backtests(symbols=symbols)
-
-    print("\n=== Per-symbol summary ===")
-    print_per_symbol_summary(per_symbol)
+    app.run(host="127.0.0.1", port=5000, debug=True)
