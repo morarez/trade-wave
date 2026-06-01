@@ -1,3 +1,4 @@
+import argparse
 from time import sleep
 from backtest import run_all_backtests
 
@@ -28,8 +29,25 @@ def print_per_symbol_summary(per_symbol):
         print(data["stats"].to_string(float_format=lambda x: f"{x:,.2f}"))
 
 
+def parse_symbol_list(symbol_string):
+    """Parse a comma/space-separated symbol string into a list."""
+    if not symbol_string:
+        return None
+    symbols = [part.strip().upper() for part in symbol_string.replace(",", " ").split() if part.strip()]
+    return symbols or None
+
+
 if __name__ == "__main__":
-    pf, stats, per_symbol, price_df, entries, exits = run_all_backtests()
+    parser = argparse.ArgumentParser(description="Run strategy backtests for a list of symbols.")
+    parser.add_argument(
+        "--symbols",
+        type=str,
+        help="Comma or space separated list of symbols to backtest. Example: AAPL,MSFT,GOOG",
+    )
+    args = parser.parse_args()
+
+    symbols = parse_symbol_list(args.symbols)
+    pf, stats, per_symbol, price_df, entries, exits = run_all_backtests(symbols=symbols)
 
     print("\n=== Per-symbol summary ===")
     print_per_symbol_summary(per_symbol)

@@ -38,23 +38,14 @@ To customize the run, update the call to `run_all_backtests()` in `main.py` or a
 
 `main.py` prints:
 
-* overall strategy comparison statistics
 * per-symbol summary statistics for each strategy
 
 ## AI Integration (LightGBM)
 
-This project includes an optional AI-based strategy using LightGBM. The AI modules live in the `ai/` package and include utilities to build features, train a model, and produce model-based signals.
+This project includes an AI-based strategy using LightGBM. The AI modules live in the `ai/` package and include utilities to build features, train a model, and produce model-based signals.
 
-Quick start:
-
-1. Train a model (this will save to `ai/models/lightgbm_model.pkl`):
+Train a model (this will save to `ai/models/lightgbm_model.pkl`):
 
 ```bash
 python ai/train_model.py
-```
-
-2. Run the backtest including the AI strategy (registered in `strategies/strategy_factory.py`):
-
-```bash
-python main.py
 ```
