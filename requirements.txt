@@ -1,11 +1,6 @@
 vectorbt
-ipywidgets
 pandas_ta
 numpy
-requests
-ta
-matplotlib
-schedule
 lightgbm
 scikit-learn
 joblib
