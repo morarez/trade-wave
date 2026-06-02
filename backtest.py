@@ -17,7 +17,7 @@ def run_all_backtests(symbols=None, start_date="2024-01-01", end_date=None, cash
         interval: yfinance interval ('1d', '1m', '5m', etc.)
     
     Returns:
-        pf: last portfolio object
+        portfolios: dict of {strategy_name: Portfolio} for every backtest run
         summary: DataFrame of stats per strategy
         per_symbol: dict of {strategy_name: {'summary': pd.Series, 'stats': pd.DataFrame}}
         price_df: DataFrame of price data
@@ -34,6 +34,7 @@ def run_all_backtests(symbols=None, start_date="2024-01-01", end_date=None, cash
 
     summary = {}
     per_symbol = {}
+    portfolios = {}
 
     def build_entry_exit_signals(signal, index):
         """Convert BUY/SELL/HOLD signals into vectorbt entry/exit boolean Series.
@@ -98,7 +99,8 @@ def run_all_backtests(symbols=None, start_date="2024-01-01", end_date=None, cash
         pf_summary = stats[['Total Return [%]', 'Sharpe Ratio']].mean()
         summary[name] = pf_summary
         per_symbol[name] = {"summary": pf_summary, "stats": stats}
+        portfolios[name] = pf
 
     result_summary = pd.DataFrame(summary).T
 
-    return pf, result_summary, per_symbol, price_df, entries, exits
+    return portfolios, result_summary, per_symbol, price_df, entries, exits
