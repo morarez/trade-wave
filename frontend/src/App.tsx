@@ -18,13 +18,34 @@ type ApiResult = {
 
 const DEFAULT_SYMBOLS = 'AAPL, SOFI, GOOG'
 
-function formatCell(value: string | number | null) {
+function formatCell(value: string | number | null, column?: string, percentPosition: 'prefix' | 'suffix' = 'suffix') {
   if (value === null || value === undefined) return '-'
-  if (typeof value === 'number') return value.toFixed(2)
-  return String(value)
+  const col = (column || '').toLowerCase()
+
+  // Columns that represent percentages
+  const isPercentCol = /return|drawdown|win rate|cagr|annualized/i.test(col)
+
+  const stringValue = String(value).trim()
+  const parsedValue = Number(stringValue.replace(/%/g, ''))
+  const isNumericString = stringValue !== '' && !Number.isNaN(parsedValue)
+
+  if ((typeof value === 'number' || isNumericString) && isPercentCol) {
+    const num = typeof value === 'number' ? (value as number) : parsedValue
+    if (percentPosition === 'prefix') {
+      return num < 0 ? `-%${Math.abs(num).toFixed(2)}` : `%${num.toFixed(2)}`
+    }
+    return num < 0 ? `-${Math.abs(num).toFixed(2)}%` : `${num.toFixed(2)}%`
+  }
+
+  if (typeof value === 'number') return (value as number).toFixed(2)
+  return stringValue
 }
 
-function DataTableView({ table }: { table: DataTable }) {
+function DataTableView({ table, percentPosition = 'suffix' }: { table: DataTable; percentPosition?: 'prefix' | 'suffix' }) {
+  function normalizeLabel(label: string) {
+    // Remove bracketed percent markers like ' [%]' or '[%]' from headers and row labels
+    return label.replace(/\s*\[.*?%.*?\]/g, "").trim()
+  }
   return (
     <div className="data-table">
       <table>
@@ -32,16 +53,16 @@ function DataTableView({ table }: { table: DataTable }) {
           <tr>
             <th></th>
             {table.columns.map((column) => (
-              <th key={column}>{column}</th>
+              <th key={column}>{normalizeLabel(column)}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {table.data.map((row, rowIndex) => (
             <tr key={rowIndex}>
-              <td className="row-label">{table.index[rowIndex]}</td>
+              <td className="row-label">{normalizeLabel(table.index[rowIndex])}</td>
               {row.map((value, cellIndex) => (
-                <td key={cellIndex}>{formatCell(value)}</td>
+                <td key={cellIndex}>{formatCell(value, table.columns[cellIndex], percentPosition)}</td>
               ))}
             </tr>
           ))}
@@ -120,7 +141,7 @@ function App() {
             <div className="card-header">
               <h2>Overall Summary</h2>
             </div>
-            <DataTableView table={result.summary} />
+            <DataTableView table={result.summary} percentPosition="suffix" />
           </div>
 
           {Object.entries(result.per_symbol).map(([strategy, strategyResult]) => (
@@ -135,12 +156,8 @@ function App() {
 
               <div className="card-row">
                 <div>
-                  <h3>Summary</h3>
-                  <DataTableView table={strategyResult.summary} />
-                </div>
-                <div>
                   <h3>Detailed stats</h3>
-                  <DataTableView table={strategyResult.stats} />
+                  <DataTableView table={strategyResult.stats} percentPosition="suffix" />
                 </div>
               </div>
             </div>

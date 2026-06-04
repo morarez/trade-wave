@@ -95,8 +95,55 @@ def run_all_backtests(symbols=None, start_date="2024-01-01", end_date=None, cash
             freq="1D"
         )
 
-        stats = pf.stats(metrics=["total_return", "sharpe_ratio"], agg_func=None)
-        pf_summary = stats[['Total Return [%]', 'Sharpe Ratio']].mean()
+        # Collect a set of useful metrics from vectorbt. Use internal metric keys
+        # and normalize the returned structure so metrics are indexed by name.
+        stats = pf.stats(metrics=["total_return", "win_rate", "max_dd", "period", "sharpe_ratio"], agg_func=None)
+
+        # If stats is a DataFrame with symbols as the index and metric names as
+        # columns (common when running on many symbols), transpose so metric
+        # names become the index. This makes downstream selection consistent.
+        if isinstance(stats, pd.DataFrame) and "Total Return [%]" not in stats.index:
+            stats = stats.T
+
+        def build_annualized_returns(total_return_pct, period):
+            total_return = pd.to_numeric(total_return_pct, errors="coerce") / 100.0
+            period_td = pd.to_timedelta(period)
+            if isinstance(period_td, pd.Timedelta):
+                period_days = period_td / pd.Timedelta(days=1)
+            else:
+                period_days = period_td.dt.total_seconds() / 86400
+            period_days = pd.to_numeric(period_days, errors="coerce").replace(0, np.nan)
+            annual_factor = 365.0 / period_days
+            annual_return = ((1 + total_return) ** annual_factor - 1) * 100
+            if hasattr(annual_return, "fillna"):
+                return annual_return.fillna(np.nan)
+            return annual_return
+
+        # Compute derived metrics
+        try:
+            stats.loc["Annualized Return [%]"] = build_annualized_returns(
+                stats.loc["Total Return [%]"], stats.loc["Period"]
+            )
+            stats.loc["CAGR [%]"] = stats.loc["Annualized Return [%]"]
+        except Exception:
+            # If computing fails for some reason, ensure keys exist with NaNs
+            stats.loc["Annualized Return [%]"] = np.nan
+            stats.loc["CAGR [%]"] = np.nan
+
+        # Select the summary metrics we want to expose
+        summary_metrics = [
+            "Total Return [%]",
+            "Annualized Return [%]",
+            "CAGR [%]",
+            "Max Drawdown [%]",
+            "Win Rate [%]",
+            "Sharpe Ratio",
+        ]
+
+        # Extract and aggregate per-symbol stats into a single series per strategy
+        selected_stats = stats.loc[summary_metrics]
+        pf_summary = selected_stats.mean(axis=1) if isinstance(selected_stats, pd.DataFrame) else selected_stats
+
         summary[name] = pf_summary
         per_symbol[name] = {"summary": pf_summary, "stats": stats}
         portfolios[name] = pf
