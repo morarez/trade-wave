@@ -18,18 +18,24 @@ type ApiResult = {
 
 const DEFAULT_SYMBOLS = 'AAPL, SOFI, GOOG'
 
-function formatCell(value: string | number | null, column?: string, percentPosition: 'prefix' | 'suffix' = 'suffix') {
+function formatCell(
+  value: string | number | null,
+  metricLabel?: string,
+  columnLabel?: string,
+  percentPosition: 'prefix' | 'suffix' = 'suffix'
+) {
   if (value === null || value === undefined) return '-'
-  const col = (column || '').toLowerCase()
+  const metric = (metricLabel || '').toLowerCase()
+  const column = (columnLabel || '').toLowerCase()
 
-  // Columns that represent percentages
-  const isPercentCol = /return|drawdown|win rate|cagr|annualized/i.test(col)
+  // Metrics or columns that represent percentages
+  const isPercentMetric = /return|drawdown|win rate|cagr|annualized/i.test(metric) || /return|drawdown|win rate|cagr|annualized/i.test(column)
 
   const stringValue = String(value).trim()
   const parsedValue = Number(stringValue.replace(/%/g, ''))
   const isNumericString = stringValue !== '' && !Number.isNaN(parsedValue)
 
-  if ((typeof value === 'number' || isNumericString) && isPercentCol) {
+  if ((typeof value === 'number' || isNumericString) && isPercentMetric) {
     const num = typeof value === 'number' ? (value as number) : parsedValue
     if (percentPosition === 'prefix') {
       return num < 0 ? `-%${Math.abs(num).toFixed(2)}` : `%${num.toFixed(2)}`
@@ -62,7 +68,7 @@ function DataTableView({ table, percentPosition = 'suffix' }: { table: DataTable
             <tr key={rowIndex}>
               <td className="row-label">{normalizeLabel(table.index[rowIndex])}</td>
               {row.map((value, cellIndex) => (
-                <td key={cellIndex}>{formatCell(value, table.columns[cellIndex], percentPosition)}</td>
+                <td key={cellIndex}>{formatCell(value, table.index[rowIndex], table.columns[cellIndex], percentPosition)}</td>
               ))}
             </tr>
           ))}
