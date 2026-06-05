@@ -39,7 +39,10 @@ def train_model(X, y, model_path: str = "ai/models/lightgbm_model.pkl", test_siz
     preds = model.predict(X_test)
     mse = mean_squared_error(y_test, preds)
 
-    joblib.dump(model, model_path)
+    # Save both model and the feature columns used during training so
+    # prediction can be aligned to the same schema later.
+    payload = {"model": model, "feature_names": list(X_proc.columns)}
+    joblib.dump(payload, model_path)
     return model_path, mse
 
 
@@ -57,4 +60,35 @@ def load_model(model_path: str = "ai/models/lightgbm_model.pkl"):
     """
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model not found: {model_path}")
-    return joblib.load(model_path)
+    payload = joblib.load(model_path)
+    # Backwards compatibility: older files may contain the raw model object.
+    if hasattr(payload, "predict"):
+        # Try to infer training feature names from the model object for
+        # backwards compatibility with older saved models.
+        inferred = None
+        try:
+            # scikit-learn API: number of input features
+            if hasattr(payload, "feature_name_"):
+                inferred = list(getattr(payload, "feature_name_"))
+        except Exception:
+            inferred = None
+        try:
+            # LightGBM booster: feature_name() method
+            if inferred is None and hasattr(payload, "booster_"):
+                b = getattr(payload, "booster_")
+                if hasattr(b, "feature_name"):
+                    inferred = list(b.feature_name())
+        except Exception:
+            inferred = inferred or None
+        try:
+            # sklearn estimators often expose n_features_in_
+            if inferred is None and hasattr(payload, "n_features_in_"):
+                n = int(getattr(payload, "n_features_in_"))
+                inferred = [f"f{i}" for i in range(n)]
+        except Exception:
+            inferred = inferred or None
+        return payload, inferred
+    if isinstance(payload, dict) and "model" in payload:
+        return payload["model"], payload.get("feature_names")
+    # Unknown format — return as-is (likely will fail later)
+    return payload, None

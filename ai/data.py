@@ -1,24 +1,43 @@
 
 import pandas as pd
 import numpy as np
-from typing import Tuple
+from typing import Tuple, Union
 
-from indicators.moving_averages import add_sma, add_macd
-from indicators.momentum import add_rsi
+from indicators import (
+    add_sma,
+    add_macd,
+    add_rsi,
+    add_stochastic,
+    add_bollinger_bands,
+    add_rolling_volatility,
+    add_atr,
+    add_roc,
+    add_adx,
+    add_obv,
+    add_volume_features,
+)
 
 
-def features_for_series(series: pd.Series) -> pd.DataFrame:
-    """Return a features DataFrame for a single price series.
+def features_for_series(series: Union[pd.Series, pd.DataFrame]) -> pd.DataFrame:
+    """Return a features DataFrame for a single price series or OHLCV DataFrame.
 
-    Features are aligned to time t and the target is the next-period return.
+    If `series` is a Series, it's treated as `close` series (backwards-compatible).
+    If `series` is a DataFrame, it should contain at least 'close' and optionally
+    'high','low','volume' to compute richer features.
     """
-    df = pd.DataFrame({"close": series}).copy()
-    # Basic price-derived features
-    df["ret_1"] = df["close"].pct_change()
-    df["ret_5"] = df["close"].pct_change(5)
-    df["ret_10"] = df["close"].pct_change(10)
+    # Normalize input to DataFrame with named columns when possible
+    if isinstance(series, pd.Series):
+        df = pd.DataFrame({"close": series}).copy()
+    else:
+        df = series.copy()
 
-    # Technical indicators (these functions add columns in-place)
+    # Basic price-derived features
+    if "close" in df.columns:
+        df["ret_1"] = df["close"].pct_change()
+        df["ret_5"] = df["close"].pct_change(5)
+        df["ret_10"] = df["close"].pct_change(10)
+
+    # Indicator enrichments (best-effort; keep original data if indicator fails)
     try:
         df = add_sma(df)
     except Exception:
@@ -31,8 +50,40 @@ def features_for_series(series: pd.Series) -> pd.DataFrame:
         df = add_macd(df)
     except Exception:
         pass
+    try:
+        df = add_stochastic(df)
+    except Exception:
+        pass
+    try:
+        df = add_bollinger_bands(df)
+    except Exception:
+        pass
+    try:
+        df = add_rolling_volatility(df)
+    except Exception:
+        pass
+    try:
+        df = add_atr(df)
+    except Exception:
+        pass
+    try:
+        df = add_roc(df)
+    except Exception:
+        pass
+    try:
+        df = add_adx(df)
+    except Exception:
+        pass
+    try:
+        df = add_obv(df)
+    except Exception:
+        pass
+    try:
+        df = add_volume_features(df)
+    except Exception:
+        pass
 
-    # Fill/clean
+    # Final cleanup: replace infinities and drop rows with NaNs
     df = df.replace([np.inf, -np.inf], np.nan).dropna()
     return df
 
