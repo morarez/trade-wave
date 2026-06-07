@@ -1,9 +1,63 @@
-from typing import Optional
+from typing import Optional, List, Dict, Any
 import numpy as np
 import pandas as pd
+import os
 
 from .model import load_model
 from .data import features_for_series
+
+
+def load_pipeline_model(
+    model_path: str = "ai/models/pipeline_model.pkl",
+) -> tuple:
+    """Load a trained pipeline model and its metadata.
+    
+    Args:
+        model_path: path to the saved pipeline model.
+    
+    Returns:
+        Tuple of (pipeline, metadata).
+    """
+    from .pipeline import TimeSeriesPipeline
+    
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model not found: {model_path}")
+    
+    # Create pipeline instance and load model
+    pipeline = TimeSeriesPipeline(verbose=False)
+    model, metadata = pipeline.load_model(model_path)
+    
+    return pipeline, metadata
+
+
+def get_selected_features(
+    model_path: str = "ai/models/pipeline_model.pkl",
+) -> List[str]:
+    """Get list of selected features from a trained pipeline model.
+    
+    Args:
+        model_path: path to saved pipeline model.
+    
+    Returns:
+        List of feature names.
+    """
+    _, metadata = load_pipeline_model(model_path)
+    return metadata.get("selected_features", [])
+
+
+def get_model_metrics(
+    model_path: str = "ai/models/pipeline_model.pkl",
+) -> Dict[str, Any]:
+    """Get evaluation metrics from a trained pipeline model.
+    
+    Args:
+        model_path: path to saved pipeline model.
+    
+    Returns:
+        Dictionary with train/val/test metrics.
+    """
+    _, metadata = load_pipeline_model(model_path)
+    return metadata.get("metrics", {})
 
 
 def predict_signals_for_series(series: pd.Series, model_path: str = "ai/models/lightgbm_model.pkl", threshold: float = 0.001):
