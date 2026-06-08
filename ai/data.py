@@ -115,6 +115,9 @@ def build_dataset(price_df: pd.DataFrame, target_horizon: int = 1) -> Tuple[pd.D
     X = X.loc[valid]
     y = y.loc[valid]
 
+    # Remove non-numeric columns (e.g. symbol labels) before training.
+    X = X.select_dtypes(include=[np.number])
+
     return X, y
 
 

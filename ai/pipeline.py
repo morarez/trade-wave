@@ -30,7 +30,7 @@ class TimeSeriesPipeline:
         models_dir: str = "ai/models",
         n_features: int = 20,
         variance_threshold: float = 0.01,
-        verbose: bool = True,
+        verbose: bool = False,
     ):
         """Initialize the pipeline.
 
@@ -70,6 +70,11 @@ class TimeSeriesPipeline:
             Tuple of (X_selected, selected_feature_names).
         """
         self._log(f"Selecting top {self.n_features} features from {X.shape[1]} candidates...")
+
+        # Keep only numeric features and ignore non-numeric metadata columns.
+        X = X.select_dtypes(include=[np.number]).copy()
+        if X.empty:
+            raise ValueError("No numeric features found for feature selection.")
 
         # Step 1: Remove low-variance features
         variance_filter = VarianceThreshold(threshold=self.variance_threshold)

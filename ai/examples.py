@@ -40,7 +40,7 @@ def example_train_final_split():
     """Example 1: Train using final split approach."""
     print_header("Example 1: Train Model with Final Split")
     
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.WARNING)
     logger = logging.getLogger(__name__)
     
     # Fetch data
@@ -61,7 +61,7 @@ def example_train_final_split():
         models_dir="ai/models",
         n_features=20,
         variance_threshold=0.01,
-        verbose=True,
+        verbose=False,
     )
     print("   ✓ Pipeline initialized")
     
@@ -97,7 +97,7 @@ def example_walk_forward():
     """Example 2: Train using walk-forward validation."""
     print_header("Example 2: Walk-Forward Validation")
     
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.WARNING)
     logger = logging.getLogger(__name__)
     
     # Fetch data
@@ -117,7 +117,7 @@ def example_walk_forward():
         models_dir="ai/models",
         n_features=15,
         variance_threshold=0.01,
-        verbose=True,
+        verbose=False,
     )
     
     # Perform walk-forward validation
@@ -223,8 +223,11 @@ def example_feature_importance():
             key=lambda x: x[1],
             reverse=True
         )
+        max_importance = max(float(v) for v in feature_importance.values() if isinstance(v, (int, float)))
+        scale = 50 / max_importance if max_importance > 0 else 1
         for i, (feat, importance) in enumerate(sorted_features[:10], 1):
-            bar_length = int(importance * 50)
+            normalized = float(importance) * scale
+            bar_length = max(1, min(50, int(normalized)))
             bar = "█" * bar_length
             print(f"   {i:2d}. {feat:20s} {bar} {importance:.4f}")
     else:
