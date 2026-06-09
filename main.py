@@ -1,77 +1,135 @@
-from flask import Flask, jsonify, request
-import pandas as pd
+import argparse
+import logging
+from pathlib import Path
+from typing import List, Dict, Optional
 
+from ai.train_model import train_with_final_split, train_with_walk_forward
 from backtest import run_all_backtests
+import api
 
-app = Flask(__name__)
 
-
-def parse_symbol_list(symbol_string):
-    """Parse a comma/space-separated symbol string into a list."""
+def parse_symbol_list(symbol_string: str) -> Optional[List[str]]:
     if not symbol_string:
         return None
-    symbols = [part.strip().upper() for part in symbol_string.replace(",", " ").split() if part.strip()]
-    return symbols or None
+    return [part.strip().upper() for part in symbol_string.replace(",", " ").split() if part.strip()]
 
 
-def serialize_dataframe(df: pd.DataFrame):
-    df = df.copy()
-    columns = [str(col) for col in df.columns]
-    index = [str(idx) for idx in df.index]
-    data = []
-    def normalize_value(value):
-        if pd.isna(value):
-            return None
-        # pandas Timedelta -> ISO-ish string
-        if isinstance(value, pd.Timedelta):
-            return str(value)
-        # pandas Timestamp -> ISO string
-        if isinstance(value, pd.Timestamp):
-            return value.isoformat()
-        # numpy scalar -> native python
-        try:
-            import numpy as _np
-
-            if isinstance(value, (_np.floating, _np.integer, _np.bool_)):
-                return value.item()
-        except Exception:
-            pass
-        # fallback to string for other non-serializable objects
-        if isinstance(value, (list, tuple)):
-            return [normalize_value(v) for v in value]
-        return value
-
-    for row in df.itertuples(index=False, name=None):
-        data.append([normalize_value(value) for value in row])
-    return {"columns": columns, "index": index, "data": data}
+def parse_model_specs(model_strings: List[str]) -> List[Dict[str, object]]:
+    models = []
+    if not model_strings:
+        return models
+    for model_spec in model_strings:
+        if "=" in model_spec:
+            name, path = [part.strip() for part in model_spec.split("=", 1)]
+        else:
+            path = model_spec.strip()
+            name = Path(path).stem
+        if path:
+            models.append({"name": name, "path": path, "threshold": 0.001})
+    return models
 
 
-def serialize_results(results):
-    return {
-        "summary": serialize_dataframe(results["summary"]),
-        "per_symbol": {
-            name: {
-                "summary": serialize_dataframe(data["summary"].to_frame().T),
-                "stats": serialize_dataframe(data["stats"]),
-            }
-            for name, data in results["per_symbol"].items()
-        },
-    }
+def print_dataframe_summary(summary):
+    print("\nBacktest summary:")
+    for strategy, row in summary.iterrows():
+        print(f"\n- {strategy}")
+        for label, value in row.items():
+            print(f"    {label}: {value:.4f}" if isinstance(value, float) else f"    {label}: {value}")
 
 
-@app.route("/api/backtest", methods=["POST"])
-def api_backtest():
-    payload = request.get_json(silent=True) or {}
-    symbols = payload.get("symbols")
-    symbol_list = parse_symbol_list(symbols)
+def train_command(args):
+    logging.basicConfig(level=logging.INFO)
+    if args.mode == "final":
+        train_with_final_split(
+            symbols=args.symbols,
+            start=args.start,
+            model_path=args.model_path,
+            verbose=args.verbose,
+        )
+    else:
+        train_with_walk_forward(
+            symbols=args.symbols,
+            start=args.start,
+            train_size=args.train_size,
+            test_size=args.test_size,
+            step_size=args.step_size,
+            model_path=args.model_path,
+            verbose=args.verbose,
+        )
 
-    try:
-        portfolios, summary, per_symbol, _, _, _ = run_all_backtests(symbols=symbol_list)
-        payload = {"summary": summary, "per_symbol": per_symbol}
-        return jsonify(serialize_results(payload))
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 500
+
+def backtest_command(args):
+    symbols = parse_symbol_list(args.symbols) if args.symbols else None
+    strategy_names = [s.strip() for s in args.strategies.split(",") if s.strip()] if args.strategies else None
+    ai_models = parse_model_specs(args.model or [])
+
+    portfolios, summary, per_symbol, _, _, _ = run_all_backtests(
+        symbols=symbols,
+        start_date=args.start,
+        end_date=args.end,
+        cash=args.cash,
+        interval=args.interval,
+        strategy_names=strategy_names,
+        ai_models=ai_models,
+    )
+
+    print_dataframe_summary(summary)
+    return portfolios, summary, per_symbol
+
+
+def serve_command(args):
+    api.run_server(host=args.host, port=args.port, debug=args.debug)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Trade Wave AI training and backtest comparison CLI"
+    )
+    subparsers = parser.add_subparsers(dest="command")
+
+    train_parser = subparsers.add_parser("train", help="Train an AI model")
+    train_parser.add_argument("--mode", choices=["final", "walk_forward"], default="final")
+    train_parser.add_argument("--symbols", nargs="+", default=["AAPL", "MSFT", "GOOG"])
+    train_parser.add_argument("--start", default="2015-01-01")
+    train_parser.add_argument("--model-path", default="ai/models/pipeline_model.pkl")
+    train_parser.add_argument("--train-size", type=int, default=500)
+    train_parser.add_argument("--test-size", type=int, default=100)
+    train_parser.add_argument("--step-size", type=int, default=50)
+    train_parser.add_argument("--verbose", action="store_true")
+    train_parser.set_defaults(func=train_command)
+
+    backtest_parser = subparsers.add_parser("backtest", help="Run backtests for strategies and AI models")
+    backtest_parser.add_argument("--symbols", default="AAPL,MSFT,GOOG")
+    backtest_parser.add_argument("--start", default="2024-01-01")
+    backtest_parser.add_argument("--end", default=None)
+    backtest_parser.add_argument("--cash", type=float, default=10000)
+    backtest_parser.add_argument("--interval", default="1d")
+    backtest_parser.add_argument("--strategies", default="")
+    backtest_parser.add_argument("--model", action="append", help="AI model specification as name=path or path")
+    backtest_parser.set_defaults(func=backtest_command)
+
+    compare_parser = subparsers.add_parser("compare", help="Alias for backtest")
+    compare_parser.add_argument("--symbols", default="AAPL,MSFT,GOOG")
+    compare_parser.add_argument("--start", default="2024-01-01")
+    compare_parser.add_argument("--end", default=None)
+    compare_parser.add_argument("--cash", type=float, default=10000)
+    compare_parser.add_argument("--interval", default="1d")
+    compare_parser.add_argument("--strategies", default="")
+    compare_parser.add_argument("--model", action="append", help="AI model specification as name=path or path")
+    compare_parser.set_defaults(func=backtest_command)
+
+    serve_parser = subparsers.add_parser("serve", help="Run the Flask API server")
+    serve_parser.add_argument("--host", default="127.0.0.1")
+    serve_parser.add_argument("--port", type=int, default=5000)
+    serve_parser.add_argument("--debug", action="store_true")
+    serve_parser.set_defaults(func=serve_command)
+
+    args = parser.parse_args()
+    if not hasattr(args, "func"):
+        parser.print_help()
+        return
+    args.func(args)
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    main()
