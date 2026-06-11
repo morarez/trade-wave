@@ -1,15 +1,16 @@
 # Trade Wave
 
-Trade Wave is a local backtesting project for systematic trading strategies. It combines a Python backend API with a TypeScript React frontend for an interactive local UI.
+Trade Wave is an AI trading project that makes AI training the core workflow and uses backtesting as evaluation and comparison. It includes a CLI entrypoint, a Flask backtest API, and a Vite frontend for visualization.
 
 ## What it does
 
-- Runs historical backtests for registered trading strategies.
-- Supports multiple symbols and strategy performance comparison.
+- Trains AI models for price prediction using the `ai/` pipeline.
+- Runs historical backtests for benchmark strategies and AI models.
+- Exposes a REST API for programmatic backtest comparison.
 
 ## Prerequisites
 
-- Python 3.12+ (a virtual environment is recommended)
+- Python 3.12+
 - Node.js and npm
 
 ## Installation
@@ -36,13 +37,25 @@ npm install
 
 ## Running locally
 
-The project is run with a Python backend API and a Vite frontend.
+Use the CLI entrypoint in `main.py` for training, backtesting, comparing, and serving the API.
 
-In one terminal, start the backend API:
+Start the backend API server:
 
 ```bash
 source venv/bin/activate
-python main.py
+python main.py serve --host 127.0.0.1 --port 5000
+```
+
+Run a benchmark backtest:
+
+```bash
+python main.py backtest --symbols AAPL,MSFT --strategies sma_rsi,bollinger_rsi --start 2024-01-01 --end 2024-06-01
+```
+
+Compare benchmark strategies with one or more AI models:
+
+```bash
+python main.py compare --symbols AAPL,MSFT --strategies sma_rsi --model ai_model=ai/models/pipeline_model.pkl
 ```
 
 In another terminal, start the frontend:
@@ -56,7 +69,8 @@ Open the Vite URL shown in the frontend terminal.
 
 ## Project structure
 
-- `main.py` - Python backend API server
+- `main.py` - CLI entrypoint for training, backtesting, comparison, and serving the API
+- `api.py` - Flask API definition for `/api/backtest`
 - `backtest.py` - backtest runner and strategy bridge
 - `data_handler.py` - yfinance data fetcher
 - `strategies/` - strategy implementations and registry
@@ -64,37 +78,45 @@ Open the Vite URL shown in the frontend terminal.
 - `frontend/` - React + TypeScript UI
 - `tests/` - pytest tests for strategy and backtest behavior
 
-## Frontend details
-
-The frontend is a Vite app in `frontend/`:
-
-- `frontend/src/App.tsx` - main UI component
-- `frontend/src/styles.css` - application styles
-- `frontend/src/main.tsx` - React entrypoint
-
-
 ## Backend API
 
 The backend exposes a JSON POST API at:
 
 - `/api/backtest`
 
-Payload example:
+Example request body:
 
 ```json
-{ "symbols": "AAPL, MSFT, GOOG" }
+{
+  "symbols": "AAPL, MSFT, GOOG",
+  "strategies": "sma_rsi,bollinger_rsi",
+  "models": ["ai_model=ai/models/pipeline_model.pkl"]
+}
 ```
 
-Response structure includes `summary` and `per_symbol` data tables.
+The response includes:
 
-## AI Integration
+- `summary` — aggregated strategy metrics
+- `per_symbol` — detailed per-symbol stats for each strategy
 
-This project includes an AI strategy using LightGBM in the `ai/` package.
+## AI
+
+The AI model training pipeline lives in `ai/`.
 
 Train a model with:
 
 ```bash
-python ai/train_model.py
+python main.py train --mode final --model-path ai/models/pipeline_model.pkl
 ```
 
-The model file is expected at `ai/models/lightgbm_model.pkl`.
+Or use walk-forward validation:
+
+```bash
+python main.py train --mode walk_forward --train-size 500 --test-size 100 --step-size 50 --model-path ai/models/pipeline_model.pkl
+```
+
+Then include the trained AI model in backtest comparison:
+
+```bash
+python main.py backtest --symbols AAPL --strategies sma_rsi --model ai_model=ai/models/pipeline_model.pkl
+```
