@@ -243,8 +243,6 @@ Ensure:
 
 ## Integration with Backtest
 
-Update backtest to use the new pipeline model:
-
 ```python
 from ai.data import features_for_series
 from ai.predict import load_pipeline_model

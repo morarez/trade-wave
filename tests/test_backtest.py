@@ -33,7 +33,7 @@ def test_per_symbol_pf_is_a_summary_dataframe(monkeypatch, price_data):
     assert "summary" in per_symbol["fake"]
     assert "stats" in per_symbol["fake"]
     assert isinstance(per_symbol["fake"]["summary"], pd.Series)
-    # new summary metrics should be present
+    # summary metrics should be present
     for key in [
         "Total Return [%]",
         "Annualized Return [%]",

@@ -1,4 +1,4 @@
-"""Example script demonstrating the new ML pipeline functionality.
+"""Example script demonstrating the ML pipeline functionality.
 
 This script shows:
 1. Training a model with the final split approach

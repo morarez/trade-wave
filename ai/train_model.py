@@ -1,4 +1,4 @@
-"""Training scripts using the new ML pipeline with walk-forward validation.
+"""Training scripts using the ML pipeline with walk-forward validation.
 
 Usage:
     # Train with the basic pipeline (train/validation/test split):
