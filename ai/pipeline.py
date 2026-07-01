@@ -401,7 +401,8 @@ class TimeSeriesPipeline:
             raise ValueError("No model loaded. Call load_model() or train_final_model() first.")
 
         selected_features = self.metadata.get("selected_features", X.columns.tolist())
-        X_selected = X[selected_features]
+        X_selected = X.reindex(columns=selected_features, fill_value=0)
         X_scaled = self.scaler.transform(X_selected)
+        X_scaled_df = pd.DataFrame(X_scaled, columns=X_selected.columns, index=X_selected.index)
 
-        return self.model.predict(X_scaled)
+        return self.model.predict(X_scaled_df)

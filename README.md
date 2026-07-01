@@ -31,7 +31,6 @@ python -m pip install -r requirements.txt
 3. Install frontend dependencies:
 
 ```bash
-cd frontend
 npm install
 ```
 
@@ -61,7 +60,6 @@ python main.py compare --symbols AAPL,MSFT --strategies sma_rsi --model ai_model
 In another terminal, start the frontend:
 
 ```bash
-cd frontend
 npm run dev
 ```
 
