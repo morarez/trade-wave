@@ -1,12 +1,13 @@
 # Trade Wave
 
-Trade Wave is an AI trading project that makes AI training the core workflow and uses backtesting as evaluation and comparison. It includes a CLI entrypoint, a Flask backtest API, and a Vite frontend for visualization.
+Trade Wave is a lightweight trading research workspace for exploring how technical strategies and machine learning models behave over time. The project brings together historical backtesting, model training, prediction workflows, and a small web interface so users can compare ideas, inspect results, and iterate quickly.
 
 ## What it does
 
 - Trains AI models for price prediction using the `ai/` pipeline.
 - Runs historical backtests for benchmark strategies and AI models.
-- Exposes a REST API for programmatic backtest comparison.
+- Generates prediction summaries for a symbol using the trained model and selected strategies.
+- Exposes a REST API for programmatic backtest and prediction workflows.
 
 ## Prerequisites
 
@@ -86,7 +87,7 @@ Open the Vite URL shown in the frontend terminal.
 ## Project structure
 
 - `main.py` - CLI entrypoint for training, backtesting, comparison, and serving the API
-- `api.py` - Flask API definition for `/api/backtest`
+- `api.py` - Flask API definition for `/api/backtest` and `/api/predict`
 - `backtest.py` - backtest runner and strategy bridge
 - `data_handler.py` - yfinance data fetcher
 - `strategies/` - strategy implementations and registry
@@ -96,9 +97,10 @@ Open the Vite URL shown in the frontend terminal.
 
 ## Backend API
 
-The backend exposes a JSON POST API at:
+The backend exposes JSON POST APIs at:
 
 - `/api/backtest`
+- `/api/predict`
 
 Example request body:
 
@@ -110,10 +112,18 @@ Example request body:
 }
 ```
 
-The response includes:
+The backtest response includes:
 
 - `summary` — aggregated strategy metrics
 - `per_symbol` — detailed per-symbol stats for each strategy
+
+The prediction endpoint accepts a symbol, model path, and optional strategies, and returns a structured result with:
+
+- `symbol`
+- `latest_price`
+- `change_pct`
+- `ai_signal`
+- `strategy_signals`
 
 ## AI
 
@@ -135,4 +145,12 @@ Then include the trained AI model in backtest comparison:
 
 ```bash
 python main.py backtest --symbols AAPL --strategies sma_rsi --model ai_model=ai/models/pipeline_model.pkl
+```
+
+Use the UI or API to run a prediction for a symbol:
+
+```bash
+curl -X POST http://127.0.0.1:5000/api/predict \
+  -H "Content-Type: application/json" \
+  -d '{"symbol":"AAPL","model_path":"ai/models/pipeline_model.pkl","strategies":"sma_rsi,bollinger_rsi"}'
 ```
