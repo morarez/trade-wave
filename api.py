@@ -62,16 +62,30 @@ def serialize_dataframe(df: pd.DataFrame):
     def normalize_value(value):
         if pd.isna(value):
             return None
+
         if isinstance(value, pd.Timedelta):
             return str(value)
         if isinstance(value, pd.Timestamp):
             return value.isoformat()
+
         try:
             import numpy as _np
             if isinstance(value, (_np.floating, _np.integer, _np.bool_)):
-                return value.item()
+                value = value.item()
         except Exception:
             pass
+
+        if isinstance(value, (float, int, bool)):
+            if isinstance(value, bool):
+                return value
+            if pd.isna(value):
+                return None
+            if value == float("inf") or value == float("-inf"):
+                raise ValueError(f"Encountered non-finite numeric value: {value}")
+            if isinstance(value, float) and (value != value):
+                raise ValueError(f"Encountered NaN numeric value: {value}")
+            return value
+
         if isinstance(value, (list, tuple)):
             return [normalize_value(v) for v in value]
         return value

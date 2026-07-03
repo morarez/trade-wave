@@ -8,7 +8,7 @@ class BollingerRSI(Strategy):
     name = "bollinger_rsi"
 
     def apply_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = add_bollinger_bands(df, length=2)
+        df = add_bollinger_bands(df, length=20)
         df = add_rsi(df)
         return df
 
