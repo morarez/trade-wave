@@ -28,6 +28,11 @@ from data_handler import get_yfinance_data
 from ai.data import build_dataset
 from ai.pipeline import TimeSeriesPipeline
 
+DEFAULT_TRAIN_SYMBOLS = [
+    "AAPL", "MSFT", "GOOG", "AMZN", "NVDA", "META", "TSLA",
+    "NFLX", "AMD", "INTC", "ORCL", "CRM"
+]
+
 
 def train_with_final_split(
     symbols=None,
@@ -50,7 +55,7 @@ def train_with_final_split(
     logger = logging.getLogger(__name__)
 
     if symbols is None:
-        symbols = ["AAPL", "MSFT", "GOOG"]
+        symbols = DEFAULT_TRAIN_SYMBOLS
 
     logger.info(f"Fetching data for {symbols} from {start}...")
     price_df = get_yfinance_data(symbols=symbols, start=start)
@@ -107,7 +112,7 @@ def train_with_walk_forward(
     logger = logging.getLogger(__name__)
 
     if symbols is None:
-        symbols = ["AAPL", "MSFT", "GOOG"]
+        symbols = DEFAULT_TRAIN_SYMBOLS
 
     logger.info(f"Fetching data for {symbols} from {start}...")
     price_df = get_yfinance_data(symbols=symbols, start=start)
@@ -165,7 +170,7 @@ def main():
     parser.add_argument(
         "--symbols",
         nargs="+",
-        default=["AAPL", "MSFT", "GOOG"],
+        default=DEFAULT_TRAIN_SYMBOLS,
         help="Stock symbols to train on (default: AAPL MSFT GOOG)",
     )
     parser.add_argument(
