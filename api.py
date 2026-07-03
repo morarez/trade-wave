@@ -123,7 +123,7 @@ def create_app():
                 "example_request": {
                     "symbols": "AAPL,MSFT,GOOG",
                     "strategies": "sma_rsi,bollinger_rsi",
-                    "start": "2024-01-01",
+                    "start": "2025-01-01",
                     "end": "2024-06-01",
                     "cash": 10000,
                     "interval": "1d",
@@ -132,7 +132,7 @@ def create_app():
                 "notes": {
                     "symbols": "Comma-separated stock symbols (optional, defaults to AAPL)",
                     "strategies": "Comma-separated strategy names (optional, defaults to all)",
-                    "start": "Start date YYYY-MM-DD (optional, default: 2024-01-01)",
+                    "start": "Start date YYYY-MM-DD (optional, default: 2025-01-01)",
                     "end": "End date YYYY-MM-DD (optional, default: today)",
                     "cash": "Starting cash (optional, default: 10000)",
                     "interval": "Data interval (optional, default: 1d)",
@@ -144,7 +144,7 @@ def create_app():
         symbols = payload.get("symbols")
         strategy_names = normalize_list(payload.get("strategies"))
         ai_models = parse_model_list(payload.get("models"))
-        start_date = payload.get("start", "2024-01-01")
+        start_date = payload.get("start", "2025-01-01")
         end_date = payload.get("end")
         cash = payload.get("cash", 10000)
         interval = payload.get("interval", "1d")
