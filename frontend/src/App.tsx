@@ -281,9 +281,8 @@ function App() {
               {Object.entries(result.per_symbol).map(([symbolName, symbolData]) => (
                 <div key={symbolName} className="card">
                   <div className="card-header">
-                    <h3>{symbolName} Summary</h3>
+                    <h3>{symbolName}</h3>
                   </div>
-                  <DataTableView table={symbolData.summary} percentPosition="suffix" />
                   <div className="card-header" style={{ marginTop: '16px' }}>
                     <h4>Detailed Stats</h4>
                   </div>
