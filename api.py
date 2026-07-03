@@ -211,18 +211,23 @@ def create_app():
             previous_price = float(series.iloc[-2]) if len(series) > 1 else latest_price
             change_pct = ((latest_price - previous_price) / previous_price * 100) if previous_price else 0.0
 
+            strategy_signals = [
+                {"name": strategy_name, "signal": latest_ai_signal if strategy_name in STRATEGY_MAP else "unknown"}
+                for strategy_name in strategies
+            ]
+
             return jsonify({
                 "status": "success",
                 "message": (
                     f"{symbol} latest close: ${latest_price:.2f} "
-                    f"(change {change_pct:+.2f}%). AI signal: {latest_ai_signal}. "
-                    f"Strategies: {', '.join(strategy_summary) if strategy_summary else 'none'}"
+                    f"(change {change_pct:+.2f}%). AI signal: {latest_ai_signal}."
                 ),
                 "symbol": symbol,
                 "latest_price": latest_price,
                 "change_pct": change_pct,
                 "ai_signal": latest_ai_signal,
                 "strategies": strategies,
+                "strategy_signals": strategy_signals,
             })
         except Exception as exc:
             return jsonify({"error": str(exc)}), 500

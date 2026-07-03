@@ -27,3 +27,4 @@ def test_predict_endpoint_returns_success(monkeypatch):
     assert payload["status"] == "success"
     assert payload["symbol"] == "AAPL"
     assert payload["ai_signal"] == "SELL"
+    assert payload["strategy_signals"][0]["signal"] == "SELL"

@@ -16,6 +16,16 @@ type ApiResult = {
   per_symbol: Record<string, StrategyResult>
 }
 
+type PredictionResult = {
+  message?: string
+  symbol?: string
+  latest_price?: number
+  change_pct?: number
+  ai_signal?: string
+  strategies?: string[]
+  strategy_signals?: Array<{ name: string; signal: string }>
+}
+
 const DEFAULT_SYMBOLS = 'AAPL, SOFI, GOOG'
 
 function formatCell(
@@ -105,7 +115,7 @@ function App() {
   const [predictSymbol, setPredictSymbol] = useState('AAPL')
   const [predictModelPath, setPredictModelPath] = useState('ai/models/pipeline_model.pkl')
   const [predictStrategies, setPredictStrategies] = useState('sma_rsi,bollinger_rsi,macd_trend')
-  const [predictResult, setPredictResult] = useState<string | null>(null)
+  const [predictResult, setPredictResult] = useState<PredictionResult | null>(null)
 
   const symbolList = useMemo(() => symbols.trim(), [symbols])
 
@@ -198,8 +208,8 @@ function App() {
         const text = await response.text()
         throw new Error(text || 'Prediction failed')
       }
-      const data = await response.json()
-      setPredictResult(data.message || 'Prediction completed')
+      const data = (await response.json()) as PredictionResult
+      setPredictResult(data)
       setMessage(data.message || 'Prediction completed')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected error')
@@ -380,7 +390,55 @@ function App() {
               <div className="card-header">
                 <h2>Prediction Result</h2>
               </div>
-              <p>{predictResult}</p>
+              <div className="data-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Metric</th>
+                      <th>Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Symbol</td>
+                      <td>{predictResult.symbol || '-'}</td>
+                    </tr>
+                    <tr>
+                      <td>Latest Close</td>
+                      <td>{predictResult.latest_price != null ? `$${predictResult.latest_price.toFixed(2)}` : '-'}</td>
+                    </tr>
+                    <tr>
+                      <td>Change</td>
+                      <td>{predictResult.change_pct != null ? `${predictResult.change_pct >= 0 ? '+' : ''}${predictResult.change_pct.toFixed(2)}%` : '-'}</td>
+                    </tr>
+                    <tr>
+                      <td>AI Signal</td>
+                      <td>{predictResult.ai_signal || '-'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {predictResult.strategy_signals && predictResult.strategy_signals.length > 0 && (
+                <div className="data-table" style={{ marginTop: '16px' }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Strategy</th>
+                        <th>Signal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {predictResult.strategy_signals.map((item) => (
+                        <tr key={item.name}>
+                          <td>{item.name}</td>
+                          <td>{item.signal}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
           )}
         </section>
