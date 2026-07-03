@@ -78,7 +78,7 @@ function DataTableView({ table, percentPosition = 'suffix' }: { table: DataTable
   )
 }
 
-type Tab = 'backtest' | 'train'
+type Tab = 'backtest' | 'train' | 'predict'
 
 function App() {
   const [tab, setTab] = useState<Tab>('backtest')
@@ -101,6 +101,11 @@ function App() {
   const [trainSize, setTrainSize] = useState('500')
   const [testSize, setTestSize] = useState('100')
   const [stepSize, setStepSize] = useState('50')
+
+  const [predictSymbol, setPredictSymbol] = useState('AAPL')
+  const [predictModelPath, setPredictModelPath] = useState('ai/models/pipeline_model.pkl')
+  const [predictStrategies, setPredictStrategies] = useState('sma_rsi,bollinger_rsi,macd_trend')
+  const [predictResult, setPredictResult] = useState<string | null>(null)
 
   const symbolList = useMemo(() => symbols.trim(), [symbols])
 
@@ -173,6 +178,36 @@ function App() {
     }
   }
 
+  const runPrediction = async () => {
+    setLoading(true)
+    setError(null)
+    setMessage(null)
+    setPredictResult(null)
+
+    try {
+      const response = await fetch('/api/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: predictSymbol.trim(),
+          model_path: predictModelPath.trim(),
+          strategies: predictStrategies.trim(),
+        }),
+      })
+      if (!response.ok) {
+        const text = await response.text()
+        throw new Error(text || 'Prediction failed')
+      }
+      const data = await response.json()
+      setPredictResult(data.message || 'Prediction completed')
+      setMessage(data.message || 'Prediction completed')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unexpected error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -191,6 +226,9 @@ function App() {
         </button>
         <button className={`tab-button ${tab === 'train' ? 'active' : ''}`} onClick={() => setTab('train')}>
           Train Model
+        </button>
+        <button className={`tab-button ${tab === 'predict' ? 'active' : ''}`} onClick={() => setTab('predict')}>
+          Predict
         </button>
       </nav>
 
@@ -289,6 +327,60 @@ function App() {
                   <DataTableView table={symbolData.stats} percentPosition="suffix" />
                 </div>
               ))}
+            </section>
+          )}
+        </section>
+      )}
+
+      {tab === 'predict' && (
+        <section className="tab-content">
+          <section className="hero-card">
+            <div>
+              <label htmlFor="predict-symbol">Symbol</label>
+              <div className="form-group">
+                <input
+                  id="predict-symbol"
+                  value={predictSymbol}
+                  onChange={(e) => setPredictSymbol(e.target.value)}
+                  placeholder="AAPL"
+                />
+              </div>
+
+              <label htmlFor="predict-model">AI Model Path</label>
+              <div className="form-group">
+                <input
+                  id="predict-model"
+                  value={predictModelPath}
+                  onChange={(e) => setPredictModelPath(e.target.value)}
+                  placeholder="ai/models/pipeline_model.pkl"
+                />
+              </div>
+
+              <label htmlFor="predict-strategies">Strategies</label>
+              <div className="form-group">
+                <input
+                  id="predict-strategies"
+                  value={predictStrategies}
+                  onChange={(e) => setPredictStrategies(e.target.value)}
+                  placeholder="sma_rsi,bollinger_rsi,macd_trend"
+                />
+                <p className="hint">Comma-separated strategy names for the prediction view</p>
+              </div>
+
+              <button className="primary-button" disabled={loading} onClick={runPrediction}>
+                {loading ? 'Predicting...' : 'Predict'}
+              </button>
+            </div>
+          </section>
+
+          {error && <div className="status-card error-card">{error}</div>}
+          {message && <div className="status-card success-card">{message}</div>}
+          {predictResult && (
+            <section className="card">
+              <div className="card-header">
+                <h2>Prediction Result</h2>
+              </div>
+              <p>{predictResult}</p>
             </section>
           )}
         </section>

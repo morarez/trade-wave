@@ -6,6 +6,9 @@ from datetime import datetime
 
 from backtest import run_all_backtests
 from ai.train_model import train_with_final_split, train_with_walk_forward
+from ai.predict import predict_signals_for_model_path
+from data_handler import get_yfinance_data
+from strategies.strategy_factory import STRATEGY_MAP
 
 logging.basicConfig(level=logging.INFO)
 
@@ -161,6 +164,66 @@ def create_app():
                 interval=interval,
             )
             return jsonify(serialize_results({"summary": summary, "per_symbol": per_symbol}))
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+
+    @app.route("/api/predict", methods=["GET", "POST"])
+    def api_predict():
+        if request.method == "GET":
+            return jsonify({
+                "message": "POST JSON data to generate a prediction",
+                "example_request": {
+                    "symbol": "AAPL",
+                    "model_path": "ai/models/pipeline_model.pkl",
+                    "strategies": "sma_rsi,bollinger_rsi"
+                }
+            })
+
+        payload = request.get_json(silent=True) or {}
+        symbol = (payload.get("symbol") or "AAPL").strip().upper()
+        model_path = payload.get("model_path", "ai/models/pipeline_model.pkl")
+        strategies = normalize_list(payload.get("strategies")) or []
+
+        try:
+            if not symbol:
+                return jsonify({"error": "symbol is required"}), 400
+
+            price_df = get_yfinance_data(symbols=[symbol], start="2025-01-01")
+            if price_df.empty or symbol not in price_df.columns:
+                return jsonify({"error": f"No price data available for {symbol}"}), 404
+
+            series = price_df[symbol].dropna()
+            if series.empty:
+                return jsonify({"error": f"No price data available for {symbol}"}), 404
+
+            ai_signal = predict_signals_for_model_path(series, model_path=model_path, threshold=0.001)
+            ai_signal = ai_signal.dropna()
+            latest_ai_signal = ai_signal.iloc[-1] if not ai_signal.empty else "HOLD"
+
+            strategy_summary = []
+            for strategy_name in strategies:
+                if strategy_name in STRATEGY_MAP:
+                    strategy_summary.append(f"{strategy_name}: {latest_ai_signal}")
+                else:
+                    strategy_summary.append(f"{strategy_name}: unknown")
+
+            latest_price = float(series.iloc[-1])
+            previous_price = float(series.iloc[-2]) if len(series) > 1 else latest_price
+            change_pct = ((latest_price - previous_price) / previous_price * 100) if previous_price else 0.0
+
+            return jsonify({
+                "status": "success",
+                "message": (
+                    f"{symbol} latest close: ${latest_price:.2f} "
+                    f"(change {change_pct:+.2f}%). AI signal: {latest_ai_signal}. "
+                    f"Strategies: {', '.join(strategy_summary) if strategy_summary else 'none'}"
+                ),
+                "symbol": symbol,
+                "latest_price": latest_price,
+                "change_pct": change_pct,
+                "ai_signal": latest_ai_signal,
+                "strategies": strategies,
+            })
         except Exception as exc:
             return jsonify({"error": str(exc)}), 500
 
