@@ -7,6 +7,15 @@ from types import SimpleNamespace
 from ai.predict import predict_signals_for_model_path
 
 
+def _coerce_numeric_series(values):
+    numeric = pd.to_numeric(values, errors="coerce")
+    if hasattr(numeric, "replace"):
+        return numeric.replace([np.inf, -np.inf], np.nan)
+    if pd.isna(numeric):
+        return np.nan
+    return float(numeric)
+
+
 def _make_ai_strategy(name: str, model_path: str, threshold: float = 0.001):
     def generate_signals(df: pd.DataFrame):
         if "close" not in df.columns:
@@ -59,6 +68,8 @@ def run_all_backtests(
     summary = {}
     per_symbol = {}
     portfolios = {}
+
+    observation_period_days = max(1, int((price_df.index[-1] - price_df.index[0]).days) + 1)
 
     if strategy_names is None:
         strategy_map = BENCHMARK_STRATEGY_MAP.copy()
@@ -118,18 +129,19 @@ def run_all_backtests(
             freq="1D",
         )
 
-        stats = pf.stats(metrics=["total_return", "win_rate", "max_dd", "period", "sharpe_ratio"], agg_func=None)
+        stats = pf.stats(metrics=["total_return", "win_rate", "max_dd", "sharpe_ratio"], agg_func=None)
         if isinstance(stats, pd.DataFrame) and "Total Return [%]" not in stats.index:
             stats = stats.T
 
-        def build_annualized_returns(total_return_pct, period):
-            total_return = pd.to_numeric(total_return_pct, errors="coerce") / 100.0
-            period_td = pd.to_timedelta(period)
-            if isinstance(period_td, pd.Timedelta):
-                period_days = period_td / pd.Timedelta(days=1)
-            else:
-                period_days = period_td.dt.total_seconds() / 86400
-            period_days = pd.to_numeric(period_days, errors="coerce").replace(0, np.nan)
+        def build_annualized_returns(total_return_pct, period_days=None):
+            total_return = _coerce_numeric_series(total_return_pct) / 100.0
+            if period_days is None:
+                period_days = observation_period_days
+            period_days = _coerce_numeric_series(period_days)
+            if hasattr(period_days, "replace"):
+                period_days = period_days.replace(0, np.nan)
+            elif period_days == 0:
+                period_days = np.nan
             annual_factor = 365.0 / period_days
             annual_return = ((1 + total_return) ** annual_factor - 1) * 100
             if hasattr(annual_return, "fillna"):
@@ -137,13 +149,15 @@ def run_all_backtests(
             return annual_return
 
         try:
-            stats.loc["Annualized Return [%]"] = build_annualized_returns(
-                stats.loc["Total Return [%]"], stats.loc["Period"]
+            annualized_returns = build_annualized_returns(
+                stats.loc["Total Return [%]"], observation_period_days
             )
-            stats.loc["CAGR [%]"] = stats.loc["Annualized Return [%]"]
-        except Exception:
-            stats.loc["Annualized Return [%]"] = np.nan
-            stats.loc["CAGR [%]"] = np.nan
+            if isinstance(annualized_returns, pd.Series):
+                annualized_returns = annualized_returns.replace([np.inf, -np.inf], np.nan)
+            stats.loc["Annualized Return [%]"] = annualized_returns
+            stats.loc["CAGR [%]"] = annualized_returns
+        except Exception as exc:
+            raise ValueError(f"Failed to compute annualized returns for strategy '{name}': {exc}") from exc
 
         summary_metrics = [
             "Total Return [%]",

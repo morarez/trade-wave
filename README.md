@@ -38,11 +38,29 @@ npm install
 
 Use the CLI entrypoint in `main.py` for training, backtesting, comparing, and serving the API.
 
-Start the backend API server:
+Start both the backend API server and the Vite frontend together with one command:
+
+```bash
+source venv/bin/activate
+npm run dev
+```
+
+This will launch:
+
+- the Python backend on http://127.0.0.1:5000
+- the Vite frontend on the local URL shown in the terminal
+
+If you want to run them separately, you can still use:
 
 ```bash
 source venv/bin/activate
 python main.py serve --host 127.0.0.1 --port 5000
+```
+
+and in another terminal:
+
+```bash
+npm run dev:frontend
 ```
 
 Run a benchmark backtest:
