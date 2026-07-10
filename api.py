@@ -9,8 +9,10 @@ from ai.train_model import train_with_final_split, train_with_walk_forward
 from ai.predict import predict_signals_for_model_path
 from data_handler import get_yfinance_data
 from strategies.strategy_factory import STRATEGY_MAP
+from config import load_config
 
 logging.basicConfig(level=logging.INFO)
+CONFIG = load_config()
 
 
 def parse_symbol_list(symbol_string):
@@ -147,10 +149,10 @@ def create_app():
         symbols = payload.get("symbols")
         strategy_names = normalize_list(payload.get("strategies"))
         ai_models = parse_model_list(payload.get("models"))
-        start_date = payload.get("start", "2025-01-01")
+        start_date = payload.get("start", CONFIG["backtest"]["start"])
         end_date = payload.get("end")
-        cash = payload.get("cash", 10000)
-        interval = payload.get("interval", "1d")
+        cash = payload.get("cash", CONFIG["backtest"]["cash"])
+        interval = payload.get("interval", CONFIG["backtest"]["interval"])
         symbol_list = parse_symbol_list(symbols)
 
         try:
@@ -256,9 +258,9 @@ def create_app():
 
         payload = request.get_json(silent=True) or {}
         mode = payload.get("mode", "final")
-        symbols = payload.get("symbols", "AAPL,MSFT,GOOG")
-        start = payload.get("start", "2015-01-01")
-        model_path = payload.get("model_path", "ai/models/pipeline_model.pkl")
+        symbols = payload.get("symbols", ",".join(CONFIG["train"]["symbols"]))
+        start = payload.get("start", CONFIG["train"]["start"])
+        model_path = payload.get("model_path", CONFIG["train"]["model_path"])
         
         try:
             symbol_list = parse_symbol_list(symbols)
@@ -292,6 +294,11 @@ def create_app():
     return app
 
 
-def run_server(host: str = "127.0.0.1", port: int = 5000, debug: bool = True):
+def run_server(host: str = None, port: int = None, debug: bool = None):
+    config = load_config()
+    host = host or config["api"]["host"]
+    port = port if port is not None else config["api"]["port"]
+    debug = debug if debug is not None else config["api"]["debug"]
+
     app = create_app()
     app.run(host=host, port=port, debug=debug)
